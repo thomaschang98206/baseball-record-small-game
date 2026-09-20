@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>NCKU Baseball｜Data Guess</title>
+<style>
+:root{
+  --bg:#0d1210;
+  --panel:#151b18;
+  --panel2:#1a211d;
+  --line:#2b3530;
+  --ink:#f4f7f5;
+  --muted:#9eaaa3;
+  --green:#36c66f;
+  --green2:#1e8e50;
+  --gold:#e6b84d;
+  --red:#d6574c;
+  --white:#ffffff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft JhengHei","Noto Sans TC",sans-serif}
+body{min-height:100vh}
+.app{max-width:760px;margin:0 auto;padding:18px 14px 42px}
+.topbar{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px
+}
+.brand{font-weight:900;letter-spacing:.08em;font-size:15px}
+.brand span{color:var(--green)}
+.progress{font-size:12px;color:var(--muted)}
+.hero{
+  padding:18px 16px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(180deg,#141b17,#101512);
+  margin-bottom:12px
+}
+.kicker{font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--green);margin-bottom:6px}
+.hero h1{font-size:28px;line-height:1.08;margin:0 0 8px}
+.hero p{margin:0;color:var(--muted);line-height:1.6;font-size:14px}
+.metric-card{
+  border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:14px;margin-top:12px
+}
+.metric-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:10px}
+.metric-name{font-size:21px;font-weight:900}
+.metric-formula{font-size:11px;color:var(--muted);margin-top:4px}
+.metric-desc{font-size:13px;line-height:1.55;color:#cbd4cf;margin:8px 0 0}
+.rank-list{display:grid;gap:8px;margin-top:14px}
+.player{
+  position:relative;min-height:90px;border:1px solid var(--line);border-radius:14px;background:var(--panel2);
+  overflow:hidden;perspective:1000px;cursor:pointer
+}
+.player-inner{
+  position:relative;width:100%;height:100%;min-height:90px;transition:transform .55s cubic-bezier(.2,.7,.2,1);
+  transform-style:preserve-3d
+}
+.player.flipped .player-inner{transform:rotateY(180deg)}
+.face{
+  position:absolute;inset:0;padding:12px 13px;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:10px
+}
+.back{transform:rotateY(180deg);background:linear-gradient(135deg,#16301f,#17231c)}
+.rank{
+  width:34px;height:34px;border-radius:10px;border:1px solid #435148;display:grid;place-items:center;
+  font-weight:900;color:#dce4df
+}
+.front .rank{background:#111713}
+.back .rank{background:var(--green);color:#07150d;border-color:var(--green)}
+.clues{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.chip{
+  font-size:11px;color:#dfe6e2;border:1px solid #3a463f;border-radius:999px;padding:4px 7px;background:#111713
+}
+.value{
+  min-width:86px;text-align:right;font-size:24px;font-weight:950;letter-spacing:-.02em
+}
+.value small{display:block;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:0;margin-top:2px}
+.reveal-name{font-size:18px;font-weight:950;margin-bottom:4px}
+.reveal-note{font-size:11px;color:#c9d4cd;line-height:1.45}
+.tap{font-size:10px;color:#78847d;margin-top:5px}
+.controls{display:flex;gap:8px;margin-top:12px}
+button{
+  appearance:none;border:1px solid #435148;background:#171e1a;color:var(--ink);border-radius:12px;padding:11px 13px;
+  font-weight:900;font-size:13px;cursor:pointer
+}
+button.primary{background:var(--green);color:#07150d;border-color:var(--green)}
+button:active{transform:translateY(1px)}
+.footer-note{font-size:11px;color:#77827b;line-height:1.5;margin:18px 4px 0}
+.hidden{display:none!important}
+@media (max-width:520px){
+  .app{padding:12px 10px 30px}
+  .hero h1{font-size:24px}
+  .face{grid-template-columns:36px 1fr auto;padding:10px}
+  .value{font-size:22px;min-width:74px}
+  .metric-name{font-size:19px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">NCKU <span>DATA GUESS</span></div>
+    <div class="progress" id="progress"></div>
+  </div>
+
+  <section class="hero">
+    <div class="kicker">2026.09.19 INTRA-SQUAD GAME</div>
+    <h1>一個怪數字，猜一個隊友。</h1>
+    <p>每題用一個比較冷門的指標重新看這場比賽。先看系級、守位與數值，點卡片翻面才揭曉球員。</p>
+  </section>
+
+  <div id="game"></div>
+</div>
+
+<script>
+const metrics = [
+  {
+    name:"好球威脅率",
+    formula:"CSW% ÷ Strike%",
+    desc:"投成好球結果的球裡，有多少是看球好球或揮空。不是單純丟得進去，而是丟進去之後真的讓打者難受。",
+    unit:"%",
+    players:[
+      {name:"高子淳",value:"83.3",school:"師大附中",year:"大一",pos:"內野／投手",note:"好球率 69.2%，但有效好球的品質更突出。"},
+      {name:"黃子承",value:"68.8",school:"中文系",year:"大三",pos:"外野／投手",note:"後段登板，揮空能力非常明顯。"},
+      {name:"呂承恩",value:"66.7",school:"新生？",year:"大一",pos:"投手",note:"樣本很小，數字亮眼但需保留解讀。"},
+      {name:"蔡益宸",value:"58.8",school:"航太",year:"大四",pos:"投手",note:"控球波動大，但仍能製造揮空。"},
+      {name:"蔡政哲",value:"58.3",school:"藥學",year:"大三",pos:"投手",note:"前段亂、後段突然大量進 zone，型態很極端。"}
+    ]
+  },
+  {
+    name:"出局成本",
+    formula:"投球數 ÷ 製造出局數",
+    desc:"平均要花幾球才能換到一個出局。越低代表越省球，但小樣本也可能讓排名看起來很誇張。",
+    unit:"球 / 出局",
+    players:[
+      {name:"吳尚霖",value:"3.0",school:"體健休",year:"碩一",pos:"內野",note:"只有 1 個出局，漂亮數字主要受小樣本影響。"},
+      {name:"李品萱",value:"4.3",school:"中央大學",year:"碩一",pos:"投手",note:"投進去的效率高，但被擊球結果也要一起看。"},
+      {name:"王昱峻",value:"4.7",school:"地科",year:"大四",pos:"投手／捕手",note:"整體內容不算漂亮，但換出局的效率並不差。"},
+      {name:"高子淳",value:"5.2",school:"師大附中",year:"大一",pos:"內野／投手",note:"三振與省球效率兼具。"},
+      {name:"顏辰峻",value:"5.6",school:"機械",year:"碩一",pos:"投手",note:"不是最快解決型，但有一定揮空與弱擊球能力。"}
+    ]
+  },
+  {
+    name:"打席纏鬥力",
+    formula:"P/PA × Contact%",
+    desc:"把『一個打席能拖多久』和『揮了能不能碰到』綁在一起。高分代表比較難被快速解決。",
+    unit:"指數",
+    players:[
+      {name:"高子淳",value:"4.18",school:"師大附中",year:"大一",pos:"內野／投手",note:"不是只會耗球，碰球能力也維持得住。"},
+      {name:"李品鋐",value:"4.00",school:"系統",year:"大四",pos:"外野",note:"Contact 100%，同時打席不短。"},
+      {name:"黃中彥",value:"3.75",school:"電機",year:"大三",pos:"捕手",note:"整體打席品質穩定，沒有太多無效揮棒。"},
+      {name:"林建曄",value:"3.50",school:"地科",year:"大四",pos:"指定打擊",note:"Contact 100%，而且有長打結果。"},
+      {name:"張永宸",value:"3.50",school:"護理",year:"大一",pos:"內野",note:"結果不突出，但打席並沒有那麼容易處理。"}
+    ]
+  },
+  {
+    name:"非安打上壘率",
+    formula:"(BB + HBP) ÷ PA",
+    desc:"完全把安打拿掉，只看靠選球或觸身球上壘的比例。適合抓出『沒安打但其實一直上壘』的人。",
+    unit:"%",
+    players:[
+      {name:"范譽",value:"50",school:"雄中",year:"大一",pos:"外野",note:"0 安打，但一半打席仍成功上壘。"},
+      {name:"張永宸",value:"50",school:"護理",year:"大一",pos:"內野",note:"安打之外仍能製造進攻價值。"},
+      {name:"張晉緁",value:"50",school:"物理",year:"大三",pos:"內野／投手",note:"這場保送占比很高。"},
+      {name:"張冠瑀",value:"40",school:"法律",year:"大三",pos:"內野",note:"高上壘能力不只來自安打。"},
+      {name:"高子淳",value:"40",school:"師大附中",year:"大一",pos:"內野／投手",note:"在揮棒品質之外，也能靠選球上壘。"}
+    ]
+  },
+  {
+    name:"平飛製造率",
+    formula:"Contact% × LD%",
+    desc:"這是自製指標，用來估計一次揮棒最後形成平飛球的傾向。不是官方統計，但很適合找出擊球型態健康的人。",
+    unit:"%",
+    players:[
+      {name:"葉詠翔",value:"80",school:"機械",year:"大四",pos:"內野",note:"這場場內擊球型態非常偏向平飛。"},
+      {name:"黃中彥",value:"67",school:"電機",year:"大三",pos:"捕手",note:"碰球後形成平飛的比例很高。"},
+      {name:"李品鋐",value:"67",school:"系統",year:"大四",pos:"外野",note:"Contact 100%，再加上高平飛占比。"},
+      {name:"黃昱綸",value:"50",school:"電機",year:"碩二",pos:"外野",note:"整體接觸品質優於單看安打數的印象。"},
+      {name:"謝安綸",value:"40",school:"新生",year:"大一",pos:"內野",note:"樣本不大，但擊球型態有亮點。"}
+    ]
+  }
+];
+
+let idx=0;
+
+function playerCard(p,i,unit){
+  return `
+  <div class="player" onclick="this.classList.toggle('flipped')">
+    <div class="player-inner">
+      <div class="face front">
+        <div class="rank">${i+1}</div>
+        <div>
+          <div class="clues">
+            <span class="chip">${p.school}</span>
+            <span class="chip">${p.year}</span>
+            <span class="chip">${p.pos}</span>
+          </div>
+          <div class="tap">點一下揭曉</div>
+        </div>
+        <div class="value">${p.value}<small>${unit}</small></div>
+      </div>
+      <div class="face back">
+        <div class="rank">${i+1}</div>
+        <div>
+          <div class="reveal-name">${p.name}</div>
+          <div class="reveal-note">${p.note}</div>
+        </div>
+        <div class="value">${p.value}<small>${unit}</small></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function render(){
+  const m=metrics[idx];
+  document.getElementById("progress").textContent=`${idx+1} / ${metrics.length}`;
+  document.getElementById("game").innerHTML=`
+    <section class="metric-card">
+      <div class="metric-head">
+        <div>
+          <div class="metric-name">${m.name}</div>
+          <div class="metric-formula">${m.formula}</div>
+        </div>
+      </div>
+      <p class="metric-desc">${m.desc}</p>
+      <div class="rank-list">
+        ${m.players.map((p,i)=>playerCard(p,i,m.unit)).join("")}
+      </div>
+      <div class="controls">
+        <button type="button" onclick="prev()">上一題</button>
+        <button class="primary" type="button" onclick="next()">下一題</button>
+        <button type="button" onclick="flipAll()">全部揭曉</button>
+      </div>
+    </section>
+    <div class="footer-note">資料基於 2026/09/19 隊內賽既有紀錄。部分指標為自製探索性指標，目的是幫忙從不同角度理解比賽，不等同正式聯盟統計。</div>`;
+}
+function next(){idx=(idx+1)%metrics.length;render()}
+function prev(){idx=(idx-1+metrics.length)%metrics.length;render()}
+function flipAll(){document.querySelectorAll(".player").forEach(x=>x.classList.add("flipped"))}
+render();
+</script>
+</body>
+</html>
